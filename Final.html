@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACIS Library Tracking System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --acis-red: #D32F2F;
+            --bg-gray: #f4f4f4;
+            --white: #ffffff;
+            --text-dark: #333333;
+            --border: #e0e0e0;
+            --success: #2E7D32;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body {
+            background-color: var(--bg-gray);
+            color: var(--text-dark);
+            height: 100vh;
+            overflow: hidden; /* Kiosk style - no scrolling */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header --- */
+        .header {
+            background-color: var(--acis-red);
+            color: var(--white);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            user-select: none;
+        }
+
+        .header-title { cursor: pointer; }
+        .header-title h1 { font-size: 1.5rem; font-weight: 700; }
+        .header-title p { font-size: 0.85rem; opacity: 0.9; }
+
+        #live-clock { font-size: 1.2rem; font-weight: 600; }
+
+        /* --- Main Content --- */
+        .content {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .view {
+            display: none;
+            width: 100%;
+            max-width: 1000px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .view.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- Home Screen Cards --- */
+        .welcome-text { text-align: center; margin-bottom: 40px; }
+        .welcome-text h2 { font-size: 2.2rem; margin-bottom: 10px; }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .action-card {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid var(--border);
+        }
+
+        .action-card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .action-card .icon { font-size: 4rem; margin-bottom: 20px; display: block; }
+        .action-card h3 { font-size: 1.5rem; color: var(--text-dark); }
+
+        /* --- Forms --- */
+        .form-card {
+            background: var(--white);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 8px; }
+        input, select {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+        input:focus { border-color: var(--acis-red); }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            color: white;
+            transition: opacity 0.2s;
+        }
+
+        .btn-red { background-color: var(--acis-red); }
+        .btn-blue { background-color: #1976D2; }
+        .btn-gray { background-color: #757575; margin-top: 15px; }
+        .btn:active { opacity: 0.8; }
+
+        /* --- Borrowed List Table (Main Screen) --- */
+        .borrowed-section {
+            width: 100%;
+            background: var(--white);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .borrowed-section h3 { margin-bottom: 15px; border-bottom: 2px solid var(--bg-gray); padding-bottom: 10px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--bg-gray); }
+        th { color: #666; font-size: 0.8rem; text-transform: uppercase; }
+        .cb-badge { font-weight: 700; color: var(--acis-red); }
+
+        /* --- Admin Panel --- */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { padding: 10px 20px; border: none; cursor: pointer; border-radius: 5px; font-weight: 600; }
+        .tab-btn.active { background: var(--acis-red); color: white; }
+
+        #toast {
+            position: fixed; top: 80px; right: 20px;
+            padding: 15px 25px; border-radius: 8px; color: white;
+            font-weight: 600; z-index: 1000; display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <header class="header">
+        <div class="header-title" ondblclick="openAdmin()">
+            <h1>ACIS LIBRARY</h1>
+            <p>Chromebook Tracking System</p>
+        </div>
+        <div id="live-clock">00:00:00 AM</div>
+    </header>
+
+    <main class="content">
+
+        <div id="view-home" class="view active">
+            <div class="welcome-text">
+                <h2>Welcome, Students!</h2>
+                <p>Please select your transaction type</p>
+            </div>
+
+            <div class="menu-grid">
+                <div class="action-card" onclick="showView('view-borrow')">
+                    <span class="icon">💻</span>
+                    <h3>Borrow Device</h3>
+                </div>
+                <div class="action-card" onclick="showView('view-return')">
+                    <span class="icon">📥</span>
+                    <h3>Return Device</h3>
+                </div>
+            </div>
+
+            <div class="borrowed-section">
+                <h3>Currently Borrowed Devices</h3>
+                <table id="active-list-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Class</th>
+                            <th>Chromebook</th>
+                            <th>Borrowed Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="active-list-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-borrow" class="view">
+            <div class="form-card">
+                <h2 style="margin-bottom: 25px;">Borrow a Device</h2>
+                <div class="form-group">
+                    <label>👤 Student Name</label>
+                    <input type="text" id="borrow-name" placeholder="Enter full name">
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>🎓 Grade</label>
+                        <select id="borrow-grade">
+			  <option value="" disabled selected>Select Grade</option>
+                            <option>Grade 7</option>
+                            <option>Grade 8</option>
+                            <option>Grade 9</option>
+			    <option>Grade 10</option>
+			    <option>Grade 11</option>
+	    		    <option>Grade 12</option>
+
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>📘 Section</label>
+                        <select id="borrow-section">
+                          <option value="" disabled selected>Select Section</option>
+                            <option>Flames</option>
+                            <option>Phoenix</option>
+                            <option>Spark</option>
+
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>💻 Chromebook Number</label>
+                   <select id="borrow-id" required>
+  		<option value="" disabled selected>Select Chromebook</option>
+		</select>
+                </div>
+                <button class="btn btn-red" onclick="processBorrow()">🔴 Confirm Borrow</button>
+                <button class="btn btn-gray" onclick="showView('view-home')">Back</button>
+            </div>
+        </div>
+
+        <div id="view-return" class="view">
+            <div class="form-card">
+                <h2 style="margin-bottom: 25px;">Return a Device</h2>
+                <div class="form-group">
+                    <label>💻 Chromebook Number</label>
+                    <input type="text" id="return-id" placeholder="e.g., CB-01" style="text-transform: uppercase;">
+                </div>
+                <button class="btn btn-blue" onclick="processReturn()">🟦 Confirm Return</button>
+                <button class="btn btn-gray" onclick="showView('view-home')">Back</button>
+            </div>
+        </div>
+
+        <div id="view-admin" class="view">
+            <h2 style="margin-bottom: 20px;">Admin Dashboard</h2>
+            <div class="tabs">
+                <button id="tab-active-btn" class="tab-btn active" onclick="switchAdminTab('active')">Active Borrowers</button>
+                <button id="tab-logs-btn" class="tab-btn" onclick="switchAdminTab('logs')">Daily Logs</button>
+            </div>
+            
+            <div id="admin-table-container" class="borrowed-section" style="max-height: 400px;">
+                <table id="admin-table">
+                    <thead id="admin-thead"></thead>
+                    <tbody id="admin-tbody"></tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-gray" onclick="showView('view-home')">Exit Admin</button>
+                <button class="btn btn-red" onclick="resetLogs()" style="width: auto; padding: 18px 30px;">Reset Logs</button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- DATA PERSISTENCE ---
+        let activeBorrows = JSON.parse(localStorage.getItem('activeBorrows')) || [];
+        let logs = JSON.parse(localStorage.getItem('logs')) || [];
+
+        // --- CLOCK ---
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- INITIALIZATION ---
+        function init() {
+            populateCBNumbers();
+            updateActiveTable();
+        }
+
+        function populateCBNumbers() {
+            const select = document.getElementById('borrow-id');
+            select.innerHTML = '';
+            for (let i = 1; i <= 50; i++) {
+                const id = `CB-${i.toString().padStart(2, '0')}`;
+                select.innerHTML += `<option value="${id}">${id}</option>`;
+            }
+        }
+
+        // --- NAVIGATION ---
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            if(viewId === 'view-borrow') document.getElementById('borrow-name').focus();
+            if(viewId === 'view-return') document.getElementById('return-id').focus();
+        }
+
+        function openAdmin() { showView('view-admin'); switchAdminTab('active'); }
+
+        // --- LOGIC: BORROW ---
+        function processBorrow() {
+            const name = document.getElementById('borrow-name').value.trim();
+            const grade = document.getElementById('borrow-grade').value;
+            const section = document.getElementById('borrow-section').value;
+            const cbId = document.getElementById('borrow-id').value;
+
+            if (!name) return notify("⚠️ Please enter student name", "red");
+
+            // Check if already borrowed
+            if (activeBorrows.some(b => b.cbId === cbId)) {
+                return notify(`⚠️ ${cbId} is already borrowed`, "red");
+            }
+
+            const record = {
+                name,
+                class: `${grade} ${section}`,
+                cbId,
+                timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            };
+
+            activeBorrows.push(record);
+            logs.push({ ...record, action: 'Borrow', fullDate: new Date().toISOString() });
+            
+            saveAndRefresh();
+            notify(`✅ Borrowed ${cbId} successfully`, "green");
+            showView('view-home');
+            document.getElementById('borrow-name').value = "";
+        }
+
+        // --- LOGIC: RETURN ---
+        function processReturn() {
+            const cbId = document.getElementById('return-id').value.trim().toUpperCase();
+            if (!cbId) return notify("⚠️ Enter Chromebook ID", "red");
+
+            const index = activeBorrows.findIndex(b => b.cbId === cbId);
+
+            if (index === -1) {
+                return notify("⚠️ Device not found in active list", "red");
+            }
+
+            const record = activeBorrows[index];
+            logs.push({ 
+                ...record, 
+                action: 'Return', 
+                fullDate: new Date().toISOString(),
+                timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            });
+
+            activeBorrows.splice(index, 1);
+            saveAndRefresh();
+            notify(`✅ Returned ${cbId} successfully`, "blue");
+            showView('view-home');
+            document.getElementById('return-id').value = "";
+        }
+
+        // --- UI UPDATES ---
+        function saveAndRefresh() {
+            localStorage.setItem('activeBorrows', JSON.stringify(activeBorrows));
+            localStorage.setItem('logs', JSON.stringify(logs));
+            updateActiveTable();
+        }
+
+        function updateActiveTable() {
+            const tbody = document.getElementById('active-list-body');
+            tbody.innerHTML = activeBorrows.length === 0 ? '<tr><td colspan="4" style="text-align:center">No devices currently borrowed</td></tr>' : '';
+            
+            activeBorrows.forEach(b => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${b.name}</strong></td>
+                        <td>${b.class}</td>
+                        <td class="cb-badge">${b.cbId}</td>
+                        <td>${b.timestamp}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function switchAdminTab(type) {
+            const thead = document.getElementById('admin-thead');
+            const tbody = document.getElementById('admin-tbody');
+            document.getElementById('tab-active-btn').classList.toggle('active', type === 'active');
+            document.getElementById('tab-logs-btn').classList.toggle('active', type === 'logs');
+
+            if (type === 'active') {
+                thead.innerHTML = '<tr><th>Student</th><th>Class</th><th>CB ID</th><th>Borrowed</th></tr>';
+                tbody.innerHTML = activeBorrows.map(b => `<tr><td>${b.name}</td><td>${b.class}</td><td>${b.cbId}</td><td>${b.timestamp}</td></tr>`).join('');
+            } else {
+                thead.innerHTML = '<tr><th>Action</th><th>Student</th><th>CB ID</th><th>Timestamp</th></tr>';
+                tbody.innerHTML = [...logs].reverse().map(l => `
+                    <tr>
+                        <td style="color:${l.action==='Borrow'?'#D32F2F':'#1976D2'}; font-weight:bold">${l.action}</td>
+                        <td>${l.name}</td>
+                        <td>${l.cbId}</td>
+                        <td>${l.timestamp}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function resetLogs() {
+            if(confirm("Are you sure you want to delete all historical logs?")) {
+                logs = [];
+                saveAndRefresh();
+                switchAdminTab('logs');
+            }
+        }
+
+        function notify(msg, color) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.backgroundColor = color === 'green' ? '#2E7D32' : color === 'red' ? '#D32F2F' : '#1976D2';
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
+
+        init();
+    </script>
+</body>
+</html>
